@@ -106,9 +106,43 @@ Yome.drawStoveVent = (st) => {
   return <ellipse cx={ point.x } cy={ point.y } rx='14' ry='8' key='stove-vent' />
 }
 
+// Dispatcher
+Yome.itemRenderDispatch = {
+  'window': Yome.drawWindow,
+  'door-frame': Yome.drawDoor,
+  'zip-door': Yome.drawZipDoor,
+  'stove-vent': Yome.drawStoveVent,
+}
 
+Yome.itemRender = (type, st) =>
+  (Yome.itemRenderDispatch[type] || (x => null))(st)
 
+Yome.exampleData = (state => {
+  state.sides[0].face = 'window'
+  state.sides[0].corner = 'zip-door'
+  state.sides[3].face = 'window'
+  state.sides[5].corner = 'door-frame'
+  state.sides[5].face = 'window'
+  state.sides[7].corner = 'stove-vent'
+  return state
+})(Yome.initialState())
 
+Yome.sliceDeg = (st) => 360 / Yome.sideCount(st)
+Yome.sideSlice = (st, i) => {
+  const side = st.sides[i]
+  return side.corner || side.face ? (
+    <g transform={ `rotate(${ Yome.sliceDeg(st) * i },0,0)` }>
+      {Yome.itemRender(side.corner, st)}
+      {Yome.itemRender(side.face, st)}
+    </g>
+  ) : null
+}
+
+Yome.drawYome = (st) =>
+  <g transform={ `rotate(${ Yome.sliceDeg(st) / 2 },0,0)` }>
+    {Yome.drawWalls(st)}
+    {st.sides.map((side, i) => Yome.sideSlice(st, i))}
+  </g>
 
 Yome.svgWorld = (children) =>
   <svg height='500' width='500' viewBox='-250 -250 500 500'
@@ -116,12 +150,23 @@ Yome.svgWorld = (children) =>
     {children}
   </svg>
 
+
+
 // PlayArea
 Yome.playArea = (children) =>
   React.render(Yome.svgWorld(children), PlayArea)
 
 Yome.clearPlayArea = () => React.unmountComponentAtNode(PlayArea)
 
-Yome.playArea(<g>{Yome.drawZipDoor(Yome.state)}
-                {Yome.drawStoveVent(Yome.state)}
-                {Yome.drawWalls(Yome.initialState())}</g>)
+// Renderer
+Yome.widget = (st) =>
+  <div className='yome-widget'>
+    <div className='yome-widget-body'>
+      { Yome.svgWorld(Yome.drawYome(st)) }
+    </div>
+  </div>
+
+Yome.render = () =>
+  React.render(Yome.widget(Yome.state), document.getElementById('app'))
+
+Yome.render()

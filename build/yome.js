@@ -126,6 +126,54 @@ Yome.drawStoveVent = function (st) {
   return React.createElement('ellipse', { cx: point.x, cy: point.y, rx: '14', ry: '8', key: 'stove-vent' });
 };
 
+// Dispatcher
+Yome.itemRenderDispatch = {
+  'window': Yome.drawWindow,
+  'door-frame': Yome.drawDoor,
+  'zip-door': Yome.drawZipDoor,
+  'stove-vent': Yome.drawStoveVent
+};
+
+Yome.itemRender = function (type, st) {
+  return (Yome.itemRenderDispatch[type] || function (x) {
+    return null;
+  })(st);
+};
+
+Yome.exampleData = (function (state) {
+  state.sides[0].face = 'window';
+  state.sides[0].corner = 'zip-door';
+  state.sides[3].face = 'window';
+  state.sides[5].corner = 'door-frame';
+  state.sides[5].face = 'window';
+  state.sides[7].corner = 'stove-vent';
+  return state;
+})(Yome.initialState());
+
+Yome.sliceDeg = function (st) {
+  return 360 / Yome.sideCount(st);
+};
+Yome.sideSlice = function (st, i) {
+  var side = st.sides[i];
+  return side.corner || side.face ? React.createElement(
+    'g',
+    { transform: 'rotate(' + Yome.sliceDeg(st) * i + ',0,0)' },
+    Yome.itemRender(side.corner, st),
+    Yome.itemRender(side.face, st)
+  ) : null;
+};
+
+Yome.drawYome = function (st) {
+  return React.createElement(
+    'g',
+    { transform: 'rotate(' + Yome.sliceDeg(st) / 2 + ',0,0)' },
+    Yome.drawWalls(st),
+    st.sides.map(function (side, i) {
+      return Yome.sideSlice(st, i);
+    })
+  );
+};
+
 Yome.svgWorld = function (children) {
   return React.createElement(
     'svg',
@@ -144,10 +192,21 @@ Yome.clearPlayArea = function () {
   return React.unmountComponentAtNode(PlayArea);
 };
 
-Yome.playArea(React.createElement(
-  'g',
-  null,
-  Yome.drawZipDoor(Yome.state),
-  Yome.drawStoveVent(Yome.state),
-  Yome.drawWalls(Yome.initialState())
-));
+// Renderer
+Yome.widget = function (st) {
+  return React.createElement(
+    'div',
+    { className: 'yome-widget' },
+    React.createElement(
+      'div',
+      { className: 'yome-widget-body' },
+      Yome.svgWorld(Yome.drawYome(st))
+    )
+  );
+};
+
+Yome.render = function () {
+  return React.render(Yome.widget(Yome.state), document.getElementById('app'));
+};
+
+Yome.render();
