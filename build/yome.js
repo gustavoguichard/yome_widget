@@ -37,6 +37,25 @@ Yome.initialState = function () {
 
 Yome.state = Yome.state || Yome.initialState();
 
+// Performance optimizations
+Yome.pureRender = Yome.pureRender || React.createClass({
+  shouldComponentUpdate: function shouldComponentUpdate(nextProps, _) {
+    return !(this.props.data.length === nextProps.data.length && this.props.data.every(function (p, i) {
+      return p === nextProps.data[i];
+    }));
+  },
+  render: function render() {
+    return this.props.f.apply(null, this.props.data);
+  }
+});
+
+Yome.memoizeReact = function (f) {
+  return function () {
+    var args = Array.prototype.slice.call(arguments);
+    return React.createElement(Yome.pureRender, { data: arguments, f: f });
+  };
+};
+
 Yome.sideCount = function (st) {
   return st.sides.length;
 };
@@ -70,8 +89,8 @@ Yome.sidePoints = function (st) {
   });
 };
 
-Yome.drawWalls = function (state) {
-  return React.createElement('polygon', { points: Yome.pointsToPointsString(Yome.sidePoints(state)) });
+Yome.drawWalls = function (st) {
+  return React.createElement('polygon', { points: Yome.pointsToPointsString(Yome.sidePoints(st)) });
 };
 
 // Windows
@@ -128,10 +147,10 @@ Yome.drawStoveVent = function (st) {
 
 // Dispatcher
 Yome.itemRenderDispatch = {
-  'window': Yome.drawWindow,
-  'door-frame': Yome.drawDoor,
-  'zip-door': Yome.drawZipDoor,
-  'stove-vent': Yome.drawStoveVent
+  'window': Yome.memoizeReact(Yome.drawWindow),
+  'door-frame': Yome.memoizeReact(Yome.drawDoor),
+  'zip-door': Yome.memoizeReact(Yome.drawZipDoor),
+  'stove-vent': Yome.memoizeReact(Yome.drawStoveVent)
 };
 
 Yome.itemRender = function (type, st) {
@@ -183,6 +202,87 @@ Yome.svgWorld = function (children) {
   );
 };
 
+// Side Controls
+Yome.sideOptions = function () {
+  return ['HexaYome', 'SeptaYome', 'OctaYome'].map(function (l, i) {
+    return React.createElement(
+      'option',
+      { value: i + 6 },
+      l
+    );
+  });
+};
+
+Yome.sideCountInput = function (st) {
+  return React.createElement(
+    'div',
+    { className: 'top-control' },
+    React.createElement(
+      'span',
+      null,
+      ' Size of Yome '
+    ),
+    React.createElement(
+      'select',
+      { onChange: Yome.eventHandler(Yome.changeSideCount),
+        value: Yome.sideCount(st) },
+      Yome.sideOptions()
+    )
+  );
+};
+
+// Window Controls
+Yome.worldPosition = function (point) {
+  return { x: point.x + 250, y: point.y + 250 };
+};
+
+Yome.windowControl = function (st, side, i) {
+  var theta = Yome.sliceTheta(st) * (i + 1);
+  var pos = Yome.worldPosition(Yome.radialPoint(200, theta));
+  var add = !side.face;
+  return React.createElement(
+    'div',
+    { className: 'control-holder', style: { top: pos.y,
+        left: pos.x } },
+    React.createElement(
+      'a',
+      { className: 'window-control-offset ' + (add ? 'add' : 'remove'),
+        onClick: Yome.eventHandler(Yome.addRemoveWindow(i)),
+        href: '#' },
+      add ? '+ window' : '- window'
+    )
+  );
+};
+
+Yome.windowControls = function (st) {
+  return st.sides.map(function (side, i) {
+    return Yome.windowControl(st, side, i);
+  });
+};
+
+// Side effecting
+Yome.eventHandler = function (f) {
+  return function (e) {
+    e.preventDefault();
+    f(e.target.value);
+    Yome.render();
+  };
+};
+
+Yome.changeSideCount = function (newCount) {
+  var nArray = Array.apply(null, Array(parseInt(newCount)));
+  Yome.state.sides = nArray.map(function (_, i) {
+    return Yome.state.sides[i] || {};
+  });
+};
+
+Yome.addRemoveWindow = function (i) {
+  return function (_) {
+    var side = Yome.state.sides[i];
+    side.face = !side.face ? 'window' : null;
+  };
+};
+
 // PlayArea
 Yome.playArea = function (children) {
   return React.render(Yome.svgWorld(children), PlayArea);
@@ -197,9 +297,11 @@ Yome.widget = function (st) {
   return React.createElement(
     'div',
     { className: 'yome-widget' },
+    Yome.sideCountInput(st),
     React.createElement(
       'div',
       { className: 'yome-widget-body' },
+      Yome.windowControls(st),
       Yome.svgWorld(Yome.drawYome(st))
     )
   );

@@ -6,14 +6,14 @@ function l(x) {
   return x
 }
 
-Reloader.reloadFile = (path) => {
+Reloader.reloadFile = path => {
   const js = document.createElement('script')
   js.setAttribute('src', `${path}?rel=${(new Date().getTime())}`)
   document.body.appendChild(js)
   setTimeout(() => document.body.removeChild(js), 1000)
 }
 
-Reloader.startReloading = (files) => {
+Reloader.startReloading = files => {
   setTimeout(() => files.map(Reloader.reloadFile), 1000)
 }
 
@@ -28,8 +28,25 @@ Yome.initialState = () => (
 
 Yome.state = Yome.state || Yome.initialState()
 
-Yome.sideCount = (st) => st.sides.length
-Yome.sliceTheta = (st) => 2 * Math.PI / Yome.sideCount(st)
+// Performance optimizations
+Yome.pureRender = Yome.pureRender || React.createClass({
+  shouldComponentUpdate(nextProps, _) {
+    return !(this.props.data.length === nextProps.data.length &&
+            this.props.data.every((p, i) => p === nextProps.data[i]))
+  },
+  render() {
+    return this.props.f.apply(null, this.props.data)
+  }
+})
+
+Yome.memoizeReact = f =>
+  function() {
+    const args = Array.prototype.slice.call(arguments)
+    return React.createElement(Yome.pureRender, { data: arguments, f: f })
+  }
+
+Yome.sideCount = st => st.sides.length
+Yome.sliceTheta = st => 2 * Math.PI / Yome.sideCount(st)
 
 Yome.rotate = (theta, point) => {
   const sint = Math.sin(theta), cost = Math.cos(theta)
@@ -42,18 +59,18 @@ Yome.rotate = (theta, point) => {
 Yome.radialPoint = (radius, theta) =>
   Yome.rotate(theta, {x: 0, y: radius})
 
-Yome.pointsToPointsString = (points) =>
+Yome.pointsToPointsString = points =>
   points.map(p => `${p.x},${p.y}`).join(' ')
 
 // Walls
-Yome.sidePoints = (st) =>
+Yome.sidePoints = st =>
   st.sides.map((_, i) => Yome.radialPoint(180, i * Yome.sliceTheta(st)))
 
-Yome.drawWalls = (state) =>
-  <polygon points={ Yome.pointsToPointsString(Yome.sidePoints(state)) } />
+Yome.drawWalls = st =>
+  <polygon points={ Yome.pointsToPointsString(Yome.sidePoints(st)) } />
 
 // Windows
-Yome.windowPoints = (st) => {
+Yome.windowPoints = st => {
   const theta = Yome.sliceTheta(st)
   const indent = theta / 6
   return [
@@ -62,11 +79,11 @@ Yome.windowPoints = (st) => {
     Yome.radialPoint(100, theta / 2),
   ]
 }
-Yome.drawWindow = (st) =>
+Yome.drawWindow = st =>
   <polygon points={ Yome.pointsToPointsString(Yome.windowPoints(st)) } />
 
 // Doors
-Yome.doorPoints = (st) => {
+Yome.doorPoints = st => {
   const indent = Yome.sliceTheta(st) / 8
   return [
     Yome.radialPoint(165, indent),
@@ -75,15 +92,15 @@ Yome.doorPoints = (st) => {
     Yome.radialPoint(90, indent),
   ]
 }
-Yome.drawDoor = (st) =>
+Yome.drawDoor = st =>
   <polygon points={ Yome.pointsToPointsString(Yome.doorPoints(st)) } />
 
 // ZIP Doors
-Yome.drawLine = (line) =>
+Yome.drawLine = line =>
   <line x1={ line.start.x } y1={ line.start.y }
         x2={ line.end.x } y2={ line.end.y } />
 
-Yome.drawZipDoor = (st) => {
+Yome.drawZipDoor = st => {
   const theta = Yome.sliceTheta(st)
   const indent = 0.15 * (theta / 6)
   const lines = [0,1,2,3,4,5,6,7,8].reduce((acc, curr) => {
@@ -100,7 +117,7 @@ Yome.drawZipDoor = (st) => {
 }
 
 // Stove Vent
-Yome.drawStoveVent = (st) => {
+Yome.drawStoveVent = st => {
   const theta = Yome.sliceTheta(st)
   const point = Yome.radialPoint(155, 0)
   return <ellipse cx={ point.x } cy={ point.y } rx='14' ry='8' key='stove-vent' />
@@ -108,10 +125,10 @@ Yome.drawStoveVent = (st) => {
 
 // Dispatcher
 Yome.itemRenderDispatch = {
-  'window': Yome.drawWindow,
-  'door-frame': Yome.drawDoor,
-  'zip-door': Yome.drawZipDoor,
-  'stove-vent': Yome.drawStoveVent,
+  'window': Yome.memoizeReact(Yome.drawWindow),
+  'door-frame': Yome.memoizeReact(Yome.drawDoor),
+  'zip-door': Yome.memoizeReact(Yome.drawZipDoor),
+  'stove-vent': Yome.memoizeReact(Yome.drawStoveVent),
 }
 
 Yome.itemRender = (type, st) =>
@@ -127,7 +144,7 @@ Yome.exampleData = (state => {
   return state
 })(Yome.initialState())
 
-Yome.sliceDeg = (st) => 360 / Yome.sideCount(st)
+Yome.sliceDeg = st => 360 / Yome.sideCount(st)
 Yome.sideSlice = (st, i) => {
   const side = st.sides[i]
   return side.corner || side.face ? (
@@ -138,30 +155,83 @@ Yome.sideSlice = (st, i) => {
   ) : null
 }
 
-Yome.drawYome = (st) =>
+Yome.drawYome = st =>
   <g transform={ `rotate(${ Yome.sliceDeg(st) / 2 },0,0)` }>
     {Yome.drawWalls(st)}
     {st.sides.map((side, i) => Yome.sideSlice(st, i))}
   </g>
 
-Yome.svgWorld = (children) =>
+Yome.svgWorld = children =>
   <svg height='500' width='500' viewBox='-250 -250 500 500'
         preserveAspectRatio="xMidYMid meet">
     {children}
   </svg>
 
+// Side Controls
+Yome.sideOptions = () =>
+  ['HexaYome', 'SeptaYome', 'OctaYome'].map(
+    (l, i) => <option value={ i + 6 }>{ l }</option>)
 
+Yome.sideCountInput = st =>
+  <div className='top-control'>
+    <span> Size of Yome </span>
+    <select onChange={ Yome.eventHandler(Yome.changeSideCount) }
+            value={ Yome.sideCount(st) }>
+      { Yome.sideOptions() }
+    </select>
+  </div>
+
+// Window Controls
+Yome.worldPosition = point => ({ x: point.x + 250, y: point.y + 250 })
+
+Yome.windowControl = (st, side, i) => {
+  const theta = Yome.sliceTheta(st) * (i + 1)
+  const pos = Yome.worldPosition(Yome.radialPoint(200, theta))
+  const add = !side.face
+  return <div className='control-holder' style={ {top: pos.y,
+                                                  left: pos.x} }>
+    <a className={ `window-control-offset ${add ? 'add' : 'remove'}` }
+        onClick={ Yome.eventHandler(Yome.addRemoveWindow(i)) }
+        href='#'>
+      { add ? '+ window' : '- window' }
+    </a>
+  </div>
+}
+
+Yome.windowControls = st =>
+  st.sides.map((side, i) => Yome.windowControl(st, side, i))
+
+// Side effecting
+Yome.eventHandler = f =>
+  (e => {
+    e.preventDefault()
+    f(e.target.value)
+    Yome.render()
+  })
+
+Yome.changeSideCount = newCount => {
+  const nArray = Array.apply(null, Array(parseInt(newCount)))
+  Yome.state.sides = nArray.map((_, i) => Yome.state.sides[i] || {})
+}
+
+Yome.addRemoveWindow = i =>
+  (_) => {
+    const side = Yome.state.sides[i]
+    side.face = (!side.face ? 'window' : null)
+  }
 
 // PlayArea
-Yome.playArea = (children) =>
+Yome.playArea = children =>
   React.render(Yome.svgWorld(children), PlayArea)
 
 Yome.clearPlayArea = () => React.unmountComponentAtNode(PlayArea)
 
 // Renderer
-Yome.widget = (st) =>
+Yome.widget = st =>
   <div className='yome-widget'>
+    { Yome.sideCountInput(st) }
     <div className='yome-widget-body'>
+      { Yome.windowControls(st) }
       { Yome.svgWorld(Yome.drawYome(st)) }
     </div>
   </div>
