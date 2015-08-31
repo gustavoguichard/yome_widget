@@ -5,7 +5,7 @@ body {
 }
 
 svg line, svg polygon, svg ellipse {
-  stroke: hsl(30, 50%, 60%);
+  stroke: hsl(30, 45%, 65%);
   stroke-width: 2;
   fill: transparent;
   -webkit-animation: appear 0.7s;
