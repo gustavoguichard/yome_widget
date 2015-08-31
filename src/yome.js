@@ -6,6 +6,12 @@ function l(x) {
   return x
 }
 
+function every(f, x) {
+  return Array.isArray(x) ?
+    x.every(f) :
+    [x].every(f)
+}
+
 Reloader.reloadFile = path => {
   const js = document.createElement('script')
   js.setAttribute('src', `${path}?rel=${(new Date().getTime())}`)
@@ -32,7 +38,7 @@ Yome.state = Yome.state || Yome.initialState()
 Yome.pureRender = Yome.pureRender || React.createClass({
   shouldComponentUpdate(nextProps, _) {
     return !(this.props.data.length === nextProps.data.length &&
-            this.props.data.every((p, i) => p === nextProps.data[i]))
+            every((p, i) => p === nextProps.data[i], this.props.data))
   },
   render() {
     return this.props.f.apply(null, this.props.data)

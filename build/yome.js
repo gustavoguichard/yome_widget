@@ -8,6 +8,10 @@ function l(x) {
   return x;
 }
 
+function every(f, x) {
+  return Array.isArray(x) ? x.every(f) : [x].every(f);
+}
+
 Reloader.reloadFile = function (path) {
   var js = document.createElement('script');
   js.setAttribute('src', path + '?rel=' + new Date().getTime());
@@ -40,9 +44,9 @@ Yome.state = Yome.state || Yome.initialState();
 // Performance optimizations
 Yome.pureRender = Yome.pureRender || React.createClass({
   shouldComponentUpdate: function shouldComponentUpdate(nextProps, _) {
-    return !(this.props.data.length === nextProps.data.length && this.props.data.every(function (p, i) {
+    return !(this.props.data.length === nextProps.data.length && every(function (p, i) {
       return p === nextProps.data[i];
-    }));
+    }, this.props.data));
   },
   render: function render() {
     return this.props.f.apply(null, this.props.data);
