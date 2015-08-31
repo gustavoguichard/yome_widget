@@ -1,11 +1,11 @@
 body {
-  background-color: rgb(24,26,38);
+  background-color: hsl(315, 30%, 12%);
   color: white;
   font-family: sans-serif;
 }
 
 svg line, svg polygon, svg ellipse {
-  stroke: #2997ab;
+  stroke: hsl(30, 50%, 60%);
   stroke-width: 2;
   fill: transparent;
   -webkit-animation: appear 0.7s;
