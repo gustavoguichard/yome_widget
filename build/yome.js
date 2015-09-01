@@ -239,7 +239,6 @@ Yome.sideCountInput = function (st) {
 Yome.worldPosition = function (point) {
   return { x: point.x + 250, y: point.y + 250 };
 };
-
 Yome.windowControl = function (st, side, i) {
   var theta = Yome.sliceTheta(st) * (i + 1);
   var pos = Yome.worldPosition(Yome.radialPoint(200, theta));
@@ -261,6 +260,43 @@ Yome.windowControl = function (st, side, i) {
 Yome.windowControls = function (st) {
   return st.sides.map(function (side, i) {
     return Yome.windowControl(st, side, i);
+  });
+};
+
+// Corner Controls
+Yome.cornerControlStateClass = function (type, corner) {
+  return !corner && 'add' || corner == type && 'remove' || 'hidden';
+};
+
+Yome.cornerControlLink = function (type, side) {
+  return React.createElement(
+    'a',
+    { className: 'window-control-offset ' + Yome.cornerControlStateClass(type, side.corner),
+      onClick: Yome.eventHandler(Yome.addRemoveCornerItem(type, side)),
+      href: '#' },
+    (side.corner ? '-' : '+') + ' ' + type
+  );
+};
+
+Yome.cornerControlLinks = function (side, i) {
+  return ['stove-vent', 'zip-door', 'door-frame'].map(function (type) {
+    return Yome.cornerControlLink(type, side);
+  });
+};
+
+Yome.cornerItemControl = function (st, side, i) {
+  var theta = Yome.sliceTheta(st) * (i + 0.5);
+  var pos = Yome.worldPosition(Yome.radialPoint(221, theta));
+  return React.createElement(
+    'div',
+    { className: 'control-holder', style: { top: pos.y, left: pos.x } },
+    Yome.cornerControlLinks(side, i)
+  );
+};
+
+Yome.cornerItemControls = function (st) {
+  return st.sides.map(function (side, i) {
+    return Yome.cornerItemControl(st, side, i);
   });
 };
 
@@ -287,6 +323,12 @@ Yome.addRemoveWindow = function (i) {
   };
 };
 
+Yome.addRemoveCornerItem = function (type, side) {
+  return function (_) {
+    return side.corner = side.corner ? null : type;
+  };
+};
+
 // PlayArea
 Yome.playArea = function (children) {
   return React.render(Yome.svgWorld(children), PlayArea);
@@ -306,6 +348,7 @@ Yome.widget = function (st) {
       'div',
       { className: 'yome-widget-body' },
       Yome.windowControls(st),
+      Yome.cornerItemControls(st),
       Yome.svgWorld(Yome.drawYome(st))
     )
   );

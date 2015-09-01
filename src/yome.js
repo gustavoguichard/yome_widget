@@ -187,9 +187,9 @@ Yome.sideCountInput = st =>
     </select>
   </div>
 
+
 // Window Controls
 Yome.worldPosition = point => ({ x: point.x + 250, y: point.y + 250 })
-
 Yome.windowControl = (st, side, i) => {
   const theta = Yome.sliceTheta(st) * (i + 1)
   const pos = Yome.worldPosition(Yome.radialPoint(200, theta))
@@ -207,6 +207,33 @@ Yome.windowControl = (st, side, i) => {
 Yome.windowControls = st =>
   st.sides.map((side, i) => Yome.windowControl(st, side, i))
 
+// Corner Controls
+Yome.cornerControlStateClass = (type, corner) =>
+  (!corner && 'add') || (corner == type && 'remove') || 'hidden'
+
+Yome.cornerControlLink = (type, side) =>
+  <a className={ `window-control-offset ${ Yome.cornerControlStateClass(type, side.corner) }` }
+      onClick={ Yome.eventHandler(Yome.addRemoveCornerItem(type, side)) }
+      href='#'>
+    {`${side.corner ? '-' : '+'} ${type}`}
+  </a>
+
+Yome.cornerControlLinks = (side, i) =>
+  ['stove-vent', 'zip-door', 'door-frame'].map(
+    type => Yome.cornerControlLink(type, side))
+
+Yome.cornerItemControl = (st, side, i) => {
+  const theta = Yome.sliceTheta(st) * (i + 0.5)
+  const pos = Yome.worldPosition(Yome.radialPoint(221, theta))
+  return <div className='control-holder' style={{top: pos.y, left: pos.x}}>
+    { Yome.cornerControlLinks(side, i) }
+  </div>
+}
+
+Yome.cornerItemControls = st =>
+  st.sides.map((side, i) => Yome.cornerItemControl(st, side, i))
+
+
 // Side effecting
 Yome.eventHandler = f =>
   (e => {
@@ -223,8 +250,11 @@ Yome.changeSideCount = newCount => {
 Yome.addRemoveWindow = i =>
   (_) => {
     const side = Yome.state.sides[i]
-    side.face = (!side.face ? 'window' : null)
+    side.face = !side.face ? 'window' : null
   }
+
+Yome.addRemoveCornerItem = (type, side) =>
+  (_) => side.corner = side.corner ? null: type
 
 // PlayArea
 Yome.playArea = children =>
@@ -238,6 +268,7 @@ Yome.widget = st =>
     { Yome.sideCountInput(st) }
     <div className='yome-widget-body'>
       { Yome.windowControls(st) }
+      { Yome.cornerItemControls(st) }
       { Yome.svgWorld(Yome.drawYome(st)) }
     </div>
   </div>
